@@ -1,0 +1,124 @@
+---
+title: "Apple's music world"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+
+data <- read.csv("/Users/wuke/Downloads/compmus2025.csv")
+
+
+data$filename <- as.character(data$filename)
+
+
+song1_name <- "ke-w-1"
+song2_name <- "ke-w-2"
+
+
+my_songs <- data %>% filter(filename %in% c(song1_name, song2_name))
+
+
+class_avg <- data %>% summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)))
+
+
+
+head(my_songs)
+```
+
+## Welcome to Apple's music world!!!
+Welcome to my music world, where I will use what I learned in my computational musicology class to analyze two songs I made with AI.
+
+```{r}
+
+```
+
+
+### Introduction
+🎵 Song 1: Melodic Summer Vibes
+
+The first piece was created with prompts focusing on melodic summer vibes and energetic bass, running for 2 minutes and 30 seconds. 
+
+
+```{r}
+
+```
+
+
+
+🎵 Song 2: Deep House Energy
+
+The second track combines elements of J-pop and R&B with groovy rhythms and dreamy melodies, featuring a clear verse-chorus structure and reverb effects, also lasting 2 minutes and 30 seconds.
+
+```{r}
+
+```
+
+### Music visualization
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+
+
+# calculate the average valuse for class
+class_avg <- data %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE))) %>%
+  mutate(filename = "Class Average")
+
+# combine my songs with the class average data
+final_data <- bind_rows(my_songs, class_avg)
+
+# convert data to long format for visualization
+final_data_long <- final_data %>%
+  pivot_longer(cols = -filename, names_to = "feature", values_to = "value")
+
+
+# all the features
+data_no_tempo <- final_data_long %>% filter(feature != "tempo")
+
+# tempo
+data_tempo <- final_data_long %>% filter(feature == "tempo")
+
+# creat bar charts
+# all the features
+bar_plot_no_tempo <- ggplot(data_no_tempo, aes(x = feature, y = value, fill = filename)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Comparison of Features (Excluding Tempo)", x = "Feature", y = "Value") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# tempo
+bar_plot_tempo <- ggplot(data_tempo, aes(x = feature, y = value, fill = filename)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Comparison of Tempo", x = "Feature", y = "Value")
+
+# combine charts
+interactive_bar_combined <- subplot(
+  ggplotly(bar_plot_no_tempo),
+  ggplotly(bar_plot_tempo),
+  nrows = 1  
+)
+
+# final visualization
+interactive_bar_combined
+
+
+
+```
+
+
+
+### What do we get from my music？？？
+My two AI-generated songs stand out from the class average, particularly in terms of tempo, arousal, and valence. Essentia has effectively captured the characteristics of my music, clearly distinguishing my tracks from the class average in these aspects. Overall, my songs share similarities with other tracks in the class corpus, but they also exhibit unique features, such as a faster tempo and stronger emotional intensity.
+```{r}
+```
