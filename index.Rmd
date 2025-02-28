@@ -11,8 +11,11 @@ library(flexdashboard)
 library(dplyr)
 library(ggplot2)
 library(plotly)
+library(tidyverse)
+source("compmus.R")
 
-data <- read.csv("/Users/wuke/Downloads/compmus2025.csv")
+
+data <- read.csv("/Users/wuke/Desktop/apple/compmus2025.csv")
 
 
 data$filename <- as.character(data$filename)
@@ -62,6 +65,7 @@ The second track combines elements of J-pop and R&B with groovy rhythms and drea
 
 ### Music visualization
 
+#### Part A
 ```{r}
 library(dplyr)
 library(ggplot2)
@@ -116,7 +120,87 @@ interactive_bar_combined
 
 ```
 
+#### Part B
 
+```{r}
+"features/ke-w-1.json" |>                           
+  compmus_chroma(norm = "identity") |>                 
+  ggplot(aes(x = time, y = pc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:11,
+    minor_breaks = NULL,
+    labels = c(
+                "C", "C#|Db", "D", "D#|Eb",
+                "E", "F", "F#|Gb", "G",
+                "G#|Ab", "A", "A#|Bb", "B"
+              )
+  ) +
+  scale_fill_viridis_c(option = "plasma") +               
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  theme_classic()    
+```
+
+#### PartC
+
+```{r}
+"features/ke-w-1.json" |>                           
+  compmus_mfccs(norm = "identity") |>                  
+  ggplot(aes(x = time, y = mfcc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:12,
+    minor_breaks = NULL,
+  ) +
+  scale_fill_viridis_c(guide = "none") +               
+  labs(x = "Time (s)", y = "Coefficient Number", fill = NULL) +
+  theme_classic()                                      
+
+```
+
+#### Part D
+```{r}
+library(cowplot)
+chroma_ssm <-"features/ke-w-1.json" |>                           
+  compmus_chroma(norm = "identity") |>                 
+  compmus_self_similarity(
+    feature = pc,
+    distance = "euclidean"                             
+  ) |>   
+  ggplot(aes(x = xtime, y = ytime, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +               
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  ggtitle("Chroma Self-Similarity") +
+  theme_classic() +
+  theme(
+    text = element_text(size = 14),  
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")  
+  ) +
+  coord_fixed()
+
+
+mfcc_ssm <- "features/ke-w-1.json" |>                   
+  compmus_mfccs(norm = "identity") |>                  
+  compmus_self_similarity(
+    feature = mfcc,
+    distance = "euclidean"                             
+  ) |>   
+  ggplot(aes(x = xtime, y = ytime, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +               
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  ggtitle("MFCC Self-Similarity") +
+  theme_classic() +
+  theme(
+    text = element_text(size = 14),  
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")  
+  ) +
+  coord_fixed()
+
+plot_grid(chroma_ssm, mfcc_ssm, ncol = 2, align = "hv", rel_widths = c(1, 1))
+
+```
 
 ### What do we get from my music？？？
 My two AI-generated songs stand out from the class average, particularly in terms of tempo, arousal, and valence. Essentia has effectively captured the characteristics of my music, clearly distinguishing my tracks from the class average in these aspects. Overall, my songs share similarities with other tracks in the class corpus, but they also exhibit unique features, such as a faster tempo and stronger emotional intensity.
