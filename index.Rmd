@@ -2,8 +2,9 @@
 title: "Apple's music world"
 output: 
   flexdashboard::flex_dashboard:
+    orientation: columns
     storyboard: true
-    vertical_layout: fill
+    theme: journal
 ---
 
 ```{r setup, include=FALSE}
@@ -59,363 +60,167 @@ get_pr <- function(fit) {
 ```
 
 
-## Welcome to Apple's music world!!!
+## 🎧 Welcome to Apple's Music World
 Welcome to my music world, where I will use what I learned in my computational musicology class to analyze two songs I made with AI.
-
-```{r}
-
-```
 
 
 ### Introduction
-🎵 Song 1: Melodic Summer Vibes
 
-The first piece was created with prompts focusing on melodic summer vibes and energetic bass, running for 2 minutes and 30 seconds. 
+I chose two songs that I created using AI for analysis. The following are the prompts I used for AI creation. My initial idea was to create a song with a sense of melody that makes people feel like they are in summer. Or a song with a sense of melody that makes people want to sway to it.
 
+#### 🎵 Song 1: *Melodic Summer Vibes*
 
-```{r}
+The first piece was created with prompts focusing on melodic summer vibes and energetic bass, running for 2 minutes and 30 seconds.
 
+```{r, results='asis', echo=FALSE}
+cat('
+<h4>▶️ Listen to Song 1: Melodic Summer Vibes</h4>
+<audio controls>
+  <source src="ke-w-1.mp3" type="audio/mp3">
+  Your browser does not support the audio element.
+</audio>
+')
 ```
 
 
-
-🎵 Song 2: Deep House Energy
+#### 🎵 Song 2: *Deep House Energy*
 
 The second track combines elements of J-pop and R&B with groovy rhythms and dreamy melodies, featuring a clear verse-chorus structure and reverb effects, also lasting 2 minutes and 30 seconds.
 
-
-
-
-### Music visualization
-
-#### clustering
-```{r}
-compmus2025 <- read_csv("/Users/wuke/Desktop/apple/compmus2025.csv")
-
-cluster_juice <-
-  recipe(
-    filename ~
-      arousal +
-      danceability +
-      instrumentalness +
-      tempo +
-      valence,
-    data = compmus2025
-  ) |>
-  step_center(all_predictors()) |>
-  step_scale(all_predictors()) |> 
-  # step_range(all_predictors()) |> 
-  prep(compmus2025) |>
-  juice() |>
-  column_to_rownames("filename")
-
-compmus_dist <- dist(cluster_juice, method = "euclidean")
-
-compmus_dist |> 
-  hclust(method = "single") |> # Try single, average, and complete.
-  dendro_data() |>
-  ggdendrogram()
-
+```{r, results='asis', echo=FALSE}
+cat('
+<h4>▶️ Listen to Song 2: Deep House Energy</h4>
+<audio controls>
+  <source src="ke-w-2.mp3" type="audio/mp3">
+  Your browser does not support the audio element.
+</audio>
+')
 ```
 
-#### Heatmaps
-```{r}
-heatmaply(
-  cluster_juice,
-  hclustfun = hclust,
-  hclust_method = "average",  # Change for single, average, or complete linkage.
-  dist_method = "euclidean"
-)
+### Track—level Features {.tabset}
 
-```
-#### Classification
-```{r}
-compmus2025_filtered <- 
-  compmus2025 |> filter(!is.na(ai)) |> 
-  mutate(ai = factor(if_else(ai, "AI", "Non-AI")))
-```
+#### 🎯 Tempo vs Arousal (Colored by Danceability)
 
-```{r}
-classification_recipe <-
-  recipe(
-    ai ~
-      arousal +
-      danceability +
-      instrumentalness +
-      tempo +
-      valence,
-    data = compmus2025_filtered
-  ) |>
-  step_center(all_predictors()) |>
-  step_scale(all_predictors())
-
-```
-
-```{r}
-library(kknn)
-
-compmus_cv <- compmus2025_filtered |> vfold_cv(5)
-
-knn_model <-
-  nearest_neighbor(neighbors = 1) |>
-  set_mode("classification") |> 
-  set_engine("kknn")
-classification_knn <- 
-  workflow() |> 
-  add_recipe(classification_recipe) |> 
-  add_model(knn_model) |> 
-  fit_resamples(compmus_cv, control = control_resamples(save_pred = TRUE))
-
-```
-
-```{r}
-classification_knn |> get_conf_mat()
-```
-```{r}
-classification_knn |> get_conf_mat() |> autoplot(type = "mosaic")
-```
-```{r}
-classification_knn |> get_conf_mat() |> autoplot(type = "heatmap")
-
-```
-```{r}
-classification_knn |> get_pr()
-```
-#### random forests
-```{r}
-library(ranger)
-
-forest_model <-
-  rand_forest() |>
-  set_mode("classification") |> 
-  set_engine("ranger", importance = "impurity")
-indie_forest <- 
-  workflow() |> 
-  add_recipe(classification_recipe) |> 
-  add_model(forest_model) |> 
-  fit_resamples(
-    compmus_cv, 
-    control = control_resamples(save_pred = TRUE)
-  )
-
-```
-```{r}
-indie_forest |> get_pr()
-```
-
-#### tempo histogram
-```{r}
-library(ggplot2)
-library(readr)  
-
-
-tempo_data <- read_csv("/Users/wuke/Desktop/apple/compmus2025.csv") 
-head(tempo_data)
-
-ggplot(tempo_data, aes(x = tempo)) +
-  geom_histogram(binwidth = 2, fill = "lightblue", color = "black", alpha = 0.7) +
-  theme_minimal() +
-  labs(x = "Tempo (BPM)", y = "Frequency", title = "Histogram of Tempi in Class Corpus")
-
-
-```
-
-```{r}
-workflow() |> 
-  add_recipe(classification_recipe) |> 
-  add_model(forest_model) |> 
-  fit(compmus2025_filtered) |> 
-  pluck("fit", "fit", "fit") |>
-  ranger::importance() |> 
-  enframe() |> 
-  mutate(name = fct_reorder(name, value)) |> 
-  ggplot(aes(name, value)) + 
-  geom_col() + 
-  coord_flip() +
-  theme_minimal() +
-  labs(x = NULL, y = "Importance")
-```
-```{r}
-compmus2025_filtered |>
-  ggplot(aes(x = valence, y = arousal, colour = ai, size = tempo)) +
-  geom_point(alpha = 0.8) +
-  scale_color_viridis_d() +
-  labs(
-    x = "Valence",
-    y = "Arousal",
-    size = "Tempo",
-    colour = "AI"
-  )
-
-```
-#### tempogram
-
-```{r}
-"features/ke-w-1.json" |>
-  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
-  ggplot(aes(x = time, y = bpm, fill = power)) +
-  geom_raster() +
-  scale_fill_viridis_c(guide = "none") +
-  labs(x = "Time (s)", y = "Tempo (BPM)") +
-  theme_classic()
-
-```
-
-#### chordograms
-```{r}
- #      C     C#    D     Eb    E     F     F#    G     Ab    A     Bb    B
-major_chord <-
-  c(   1,    0,    0,    0,    1,    0,    0,    1,    0,    0,    0,    0)
-minor_chord <-
-  c(   1,    0,    0,    1,    0,    0,    0,    1,    0,    0,    0,    0)
-seventh_chord <-
-  c(   1,    0,    0,    0,    1,    0,    0,    1,    0,    0,    1,    0)
-
-major_key <-
-  c(6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88)
-minor_key <-
-  c(6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17)
-
-chord_templates <-
-  tribble(
-    ~name, ~template,
-    "Gb:7", circshift(seventh_chord, 6),
-    "Gb:maj", circshift(major_chord, 6),
-    "Bb:min", circshift(minor_chord, 10),
-    "Db:maj", circshift(major_chord, 1),
-    "F:min", circshift(minor_chord, 5),
-    "Ab:7", circshift(seventh_chord, 8),
-    "Ab:maj", circshift(major_chord, 8),
-    "C:min", circshift(minor_chord, 0),
-    "Eb:7", circshift(seventh_chord, 3),
-    "Eb:maj", circshift(major_chord, 3),
-    "G:min", circshift(minor_chord, 7),
-    "Bb:7", circshift(seventh_chord, 10),
-    "Bb:maj", circshift(major_chord, 10),
-    "D:min", circshift(minor_chord, 2),
-    "F:7", circshift(seventh_chord, 5),
-    "F:maj", circshift(major_chord, 5),
-    "A:min", circshift(minor_chord, 9),
-    "C:7", circshift(seventh_chord, 0),
-    "C:maj", circshift(major_chord, 0),
-    "E:min", circshift(minor_chord, 4),
-    "G:7", circshift(seventh_chord, 7),
-    "G:maj", circshift(major_chord, 7),
-    "B:min", circshift(minor_chord, 11),
-    "D:7", circshift(seventh_chord, 2),
-    "D:maj", circshift(major_chord, 2),
-    "F#:min", circshift(minor_chord, 6),
-    "A:7", circshift(seventh_chord, 9),
-    "A:maj", circshift(major_chord, 9),
-    "C#:min", circshift(minor_chord, 1),
-    "E:7", circshift(seventh_chord, 4),
-    "E:maj", circshift(major_chord, 4),
-    "G#:min", circshift(minor_chord, 8),
-    "B:7", circshift(seventh_chord, 11),
-    "B:maj", circshift(major_chord, 11),
-    "D#:min", circshift(minor_chord, 3)
-  )
-
-key_templates <-
-  tribble(
-    ~name, ~template,
-    "Gb:maj", circshift(major_key, 6),
-    "Bb:min", circshift(minor_key, 10),
-    "Db:maj", circshift(major_key, 1),
-    "F:min", circshift(minor_key, 5),
-    "Ab:maj", circshift(major_key, 8),
-    "C:min", circshift(minor_key, 0),
-    "Eb:maj", circshift(major_key, 3),
-    "G:min", circshift(minor_key, 7),
-    "Bb:maj", circshift(major_key, 10),
-    "D:min", circshift(minor_key, 2),
-    "F:maj", circshift(major_key, 5),
-    "A:min", circshift(minor_key, 9),
-    "C:maj", circshift(major_key, 0),
-    "E:min", circshift(minor_key, 4),
-    "G:maj", circshift(major_key, 7),
-    "B:min", circshift(minor_key, 11),
-    "D:maj", circshift(major_key, 2),
-    "F#:min", circshift(minor_key, 6),
-    "A:maj", circshift(major_key, 9),
-    "C#:min", circshift(minor_key, 1),
-    "E:maj", circshift(major_key, 4),
-    "G#:min", circshift(minor_key, 8),
-    "B:maj", circshift(major_key, 11),
-    "D#:min", circshift(minor_key, 3)
-  )
-
-"features/ke-w-1.json" |> 
-  compmus_chroma(norm = "identity") |> 
-  compmus_match_pitch_templates(
-    key_templates,         
-    norm = "manhattan",       
-    distance = "euclidean"   
-  ) |>
-  ggplot(aes(x = time, y = name, fill = d)) + 
-  geom_raster() +
-  scale_fill_viridis_c(guide = "none") +               
-  labs(x = "Time (s)", y = "Template", fill = NULL) +
-  theme_classic()                          
-```
-
-#### Part A
-```{r}
-library(dplyr)
-library(ggplot2)
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(plotly)
-library(tidyr)
+library(dplyr)
+library(readr)
 
+# Load dataset
+data <- read_csv("compmus2025.csv")
 
-# calculate the average valuse for class
-class_avg <- data %>%
-  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE))) %>%
-  mutate(filename = "Class Average")
+# Flag your AI songs by exact filename
+data <- data %>%
+  mutate(highlight = filename %in% c("ke-w-1", "ke-w-2"))
 
-# combine my songs with the class average data
-final_data <- bind_rows(my_songs, class_avg)
+# Create the plot object
+p <- plot_ly()
 
-# convert data to long format for visualization
-final_data_long <- final_data %>%
-  pivot_longer(cols = -filename, names_to = "feature", values_to = "value")
+# First layer: all class songs (background layer with transparency)
+p <- p %>%
+  add_trace(
+    data = filter(data, highlight == FALSE),
+    x = ~tempo,
+    y = ~arousal,
+    type = "scatter",
+    mode = "markers",
+    marker = list(size = 10, opacity = 0.5),
+    color = ~danceability,
+    colors = "viridis",
+    hoverinfo = "text",
+    text = ~paste0(
+      "<b>", filename, "</b><br>",
+      "Tempo: ", round(tempo), "<br>",
+      "Arousal: ", round(arousal, 2), "<br>",
+      "Danceability: ", round(danceability, 2)
+    ),
+    name = "Class Songs"
+  )
 
+# Second layer: your AI songs (highlighted in red with black border and label)
+p <- p %>%
+  add_trace(
+    data = filter(data, highlight == TRUE),
+    x = ~tempo,
+    y = ~arousal,
+    type = "scatter",
+    mode = "markers+text",
+    marker = list(
+      size = 20,
+      color = "red",
+      line = list(color = "black", width = 2),
+      opacity = 1
+    ),
+    text = ~filename,
+    textposition = "top center",
+    hoverinfo = "text",
+    name = "My AI Songs"
+  )
 
-# all the features
-data_no_tempo <- final_data_long %>% filter(feature != "tempo")
+# Layout customization
+p <- p %>%
+  layout(
+    title = "Tempo vs Arousal — Highlighting My Songs",
+    xaxis = list(title = "Tempo (BPM)"),
+    yaxis = list(title = "Arousal"),
+    legend = list(x = 0.8, y = 1)
+  )
 
-# tempo
-data_tempo <- final_data_long %>% filter(feature == "tempo")
+# Display plot
+p
+```
+This scatter plot reveals the distribution of all songs based on tempo and arousal, with color indicating danceability. My AI-generated tracks (ke-w-1 and ke-w-2) are highlighted in red and stand out as moderately fast and moderately energetic. This suggests that my songs maintain a balanced position in terms of energy and tempo compared to the class corpus.
 
-# creat bar charts
-# all the features
-bar_plot_no_tempo <- ggplot(data_no_tempo, aes(x = feature, y = value, fill = filename)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() +
-  labs(title = "Comparison of Features (Excluding Tempo)", x = "Feature", y = "Value") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#### 📊 AI vs Human Feature Averages
 
-# tempo
-bar_plot_tempo <- ggplot(data_tempo, aes(x = feature, y = value, fill = filename)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  theme_minimal() +
-  labs(title = "Comparison of Tempo", x = "Feature", y = "Value")
+```{r}
+df_bar <- data %>%
+  group_by(ai) %>%
+  summarise(across(c(tempo, danceability, arousal), ~mean(.x, na.rm = TRUE))) %>%
+  mutate(ai = ifelse(ai, "AI-generated", "Human"))
 
-# combine charts
-interactive_bar_combined <- subplot(
-  ggplotly(bar_plot_no_tempo),
-  ggplotly(bar_plot_tempo),
-  nrows = 1  
-)
+plot_ly(
+  df_bar %>% pivot_longer(-ai, names_to = "Feature", values_to = "Value"),
+  x = ~Feature, y = ~Value, color = ~ai,
+  type = "bar", barmode = "group"
+) %>%
+  layout(title = "Average Tempo, Arousal, Danceability: AI vs Human")
+```
+This bar chart compares the average tempo, arousal, and danceability between AI-generated and human-composed songs. The similarity across all three features implies that AI music can closely mimic the expressive qualities of human music, especially in capturing mood and rhythmic feel.
 
-# final visualization
-interactive_bar_combined
+#### 🍎 My Songs vs Class Average
+
+```{r}
+df_my <- data %>% filter(highlight == TRUE) %>%
+  select(filename, tempo, danceability, arousal) %>%
+  mutate(Group = filename)
+
+df_avg <- data %>%
+  summarise(across(c(tempo, danceability, arousal), ~mean(.x, na.rm = TRUE))) %>%
+  mutate(Group = "Class Average", filename = "Class Average")
+
+df_compare <- bind_rows(df_my, df_avg) %>%
+  pivot_longer(cols = c(tempo, danceability, arousal), names_to = "Feature", values_to = "Value")
+
+plot_ly(
+  df_compare,
+  x = ~Feature,
+  y = ~Value,
+  color = ~Group,
+  type = "bar",
+  barmode = "group"
+) %>%
+  layout(title = "My Songs vs Class Average (Feature Comparison)")
 
 
 
 ```
+This feature comparison shows how my two AI songs differ from the class average. While both songs have slightly lower tempos, they align closely in arousal and danceability. This indicates that my music is slightly more relaxed but still engaging and suitable for rhythmic listening.
 
-#### Part B
 
+### Chroma and Timbre features
+
+#### Chromagram_song_1
 ```{r}
 "features/ke-w-1.json" |>                           
   compmus_chroma(norm = "identity") |>                 
@@ -435,7 +240,35 @@ interactive_bar_combined
   theme_classic()    
 ```
 
-#### PartC
+This chromagram shows how strong each note (from C to B) is throughout the song ke-w-1. The brighter the color, the more that note is used at that moment in time. We can see that some notes like A# / Bb, D# / Eb, and F are used more often, while others are mostly dark.
+
+This means the song uses a few notes again and again, which gives it a clear and simple sound. It also suggests the harmony doesn’t change a lot, which is common in pop and dance music. The repeating patterns might help create a catchy and summery vibe, just like the prompt!
+
+
+#### Chormagram_song_2
+```{r}
+"features/ke-w-2.json" |>                           
+  compmus_chroma(norm = "identity") |>                 
+  ggplot(aes(x = time, y = pc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:11,
+    minor_breaks = NULL,
+    labels = c(
+                "C", "C#|Db", "D", "D#|Eb",
+                "E", "F", "F#|Gb", "G",
+                "G#|Ab", "A", "A#|Bb", "B"
+              )
+  ) +
+  scale_fill_viridis_c(option = "plasma") +               
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  theme_classic()    
+```
+
+This chromagram shows that the song ke-w-2 also uses a small set of notes again and again. Notes like C# / Db, D# / Eb, and A# / Bb appear more frequently with brighter colors. The usage is a bit more varied than ke-w-1, especially in the middle section (around 50–150 seconds), which might suggest more harmonic movement or changing chords.
+
+
+#### Cepstrogram_song_1
 
 ```{r}
 "features/ke-w-1.json" |>                           
@@ -452,11 +285,33 @@ interactive_bar_combined
 
 ```
 
-#### Part D
+This plot shows how the timbre of ke-w-1 changes over time. The first few coefficients (especially coefficient 1 and 2) are more colorful and change more often, which means they carry most of the variation in sound texture. The rest of the coefficients are more stable and flat, suggesting a smooth and consistent tone throughout the track.
+
+
+#### Cepstrogram_song_2
+
 ```{r}
-library(cowplot)
-chroma_ssm <-"features/ke-w-1.json" |>                           
-  compmus_chroma(norm = "identity") |>                 
+"features/ke-w-2.json" |>                           
+  compmus_mfccs(norm = "identity") |>                  
+  ggplot(aes(x = time, y = mfcc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:12,
+    minor_breaks = NULL,
+  ) +
+  scale_fill_viridis_c(guide = "none") +               
+  labs(x = "Time (s)", y = "Coefficient Number", fill = NULL) +
+  theme_classic()                                      
+
+```
+
+Compared to Song 1, this cepstrogram shows more variation over time in several mid-to-high coefficients (especially around Coefficients 3 to 7). This suggests that Song 2 has richer timbral textures and more dynamic changes in sound color. The brighter and slightly more irregular patterns also hint at a layered or evolving instrumentation.
+
+
+#### Chroma-based self-similarity_song_1
+```{r}
+"features/ke-w-1.json" |>                           
+  compmus_chroma(norm = "identity") |>                
   compmus_self_similarity(
     feature = pc,
     distance = "euclidean"                             
@@ -465,16 +320,57 @@ chroma_ssm <-"features/ke-w-1.json" |>
   geom_raster() +
   scale_fill_viridis_c(guide = "none") +               
   labs(x = "Time (s)", y = NULL, fill = NULL) +
-  ggtitle("Chroma Self-Similarity") +
-  theme_classic() +
-  theme(
-    text = element_text(size = 14),  
-    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")  
-  ) +
-  coord_fixed()
+  theme_classic()
+```
+
+This matrix shows that certain parts of the song repeat over time.
+We can see bright blocks along the diagonal and in other areas, which means the harmonies (chords or pitches) are similar at different moments.
 
 
-mfcc_ssm <- "features/ke-w-1.json" |>                   
+#### Chroma-based self-similarity_song_2
+
+```{r}
+"features/ke-w-2.json" |>                           
+  compmus_chroma(norm = "identity") |>                
+  compmus_self_similarity(
+    feature = pc,
+    distance = "euclidean"                             
+  ) |>   
+  ggplot(aes(x = xtime, y = ytime, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +               
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  theme_classic()
+```
+
+This matrix shows strong and complex repetition patterns.
+We can see many clear diagonal lines and square blocks, meaning that similar harmonic material comes back at different points.
+This suggests that the song likely has a clear structure,and a strong sense of harmonic consistency.
+
+
+#### Timbre-based self-similarity_song_1
+
+```{r}
+"features/ahram-j-1.json" |>                           
+  compmus_mfccs(norm = "identity") |>                 
+  compmus_self_similarity(
+    feature = mfcc,
+    distance = "euclidean"                             
+  ) |>   
+  ggplot(aes(x = xtime, y = ytime, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +               
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  theme_classic()                                      
+```
+
+This plot shows clear square-like blocks, meaning that sections of the song have similar timbre textures.
+
+
+#### Timbre-based self-similarity_song_2
+
+```{r}
+"features/ahram-j-1.json" |>                           
   compmus_mfccs(norm = "identity") |>                  
   compmus_self_similarity(
     feature = mfcc,
@@ -484,19 +380,186 @@ mfcc_ssm <- "features/ke-w-1.json" |>
   geom_raster() +
   scale_fill_viridis_c(guide = "none") +               
   labs(x = "Time (s)", y = NULL, fill = NULL) +
-  ggtitle("MFCC Self-Similarity") +
-  theme_classic() +
-  theme(
-    text = element_text(size = 14),  
-    plot.title = element_text(hjust = 0.5, size = 16, face = "bold")  
-  ) +
-  coord_fixed()
-
-plot_grid(chroma_ssm, mfcc_ssm, ncol = 2, align = "hv", rel_widths = c(1, 1))
-
+  theme_classic()                                      
 ```
 
-### What do we get from my music？？？
-My two AI-generated songs stand out from the class average, particularly in terms of tempo, arousal, and valence. Essentia has effectively captured the characteristics of my music, clearly distinguishing my tracks from the class average in these aspects. Overall, my songs share similarities with other tracks in the class corpus, but they also exhibit unique features, such as a faster tempo and stronger emotional intensity.
+This matrix also shows clear block-like patterns, which means the song has recurring timbre segments.Compared to Song 1, it looks more regular and repetitive, suggesting a structured verse-chorus layout.
+
+
+#### Summary
+
+Overall, the chroma and timbre features suggest that Song 1 is more explorative and varied, while Song 2 is more structured and rhythmically repetitive — both reflecting different stylistic choices in AI-generated music.
+
+
+### Loudness and Temporal features
+
+#### Energy Novelty_song_1
+
 ```{r}
+"features/ke-w-1.json" |>
+  compmus_energy_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Energy Novelty")
+
 ```
+
+This novelty function suggests that Song 1 opens with a strong energy burst, then maintains a stable and consistent energy level throughout most of the track, with minimal dynamic changes later on
+
+
+#### Energy Novelty_song_2
+
+```{r}
+"features/ke-w-2.json" |>
+  compmus_energy_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Energy Novelty")
+```
+
+The novelty curve of Song 2 shows frequent and moderate energy changes, especially between 10s–100s, suggesting a rhythmically active middle section, followed by a more stable and consistent ending.
+
+
+#### Tempograms_song_1
+
+```{r}
+"features/ke-w-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+
+#### Tempograms_song_2
+
+```{r}
+"features/ke-w-2.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+
+The tempograms of both AI-generated songs show remarkably stable, machine-like tempo patterns. This high regularity, lack of tempo variation, and repetitive rhythm structure suggest a computational origin — typical of algorithmically generated music. Unlike human compositions, which often include expressive timing fluctuations, the AI tracks display perfect metric consistency throughout.
+
+### Classification with Arousal,Valence,Tempo
+
+```{r}
+compmus2025 <- read_csv("compmus2025.csv")
+
+compmus2025_filtered <- 
+  compmus2025 |> filter(!is.na(ai)) |> 
+  mutate(ai = factor(if_else(ai, "AI", "Non-AI")))
+```
+
+```{r}
+classification_recipe <-
+  recipe(
+    ai ~
+      arousal +
+      valence +
+      tempo,
+    data = compmus2025_filtered
+  ) |>
+  step_center(all_predictors()) |>
+  step_scale(all_predictors())
+
+```
+
+```{r}
+compmus_cv <- compmus2025_filtered |> vfold_cv(5)
+```
+
+```{r}
+library(kknn)
+
+knn_model <-
+  nearest_neighbor(neighbors = 1) |>
+  set_mode("classification") |> 
+  set_engine("kknn")
+
+classification_knn <- 
+  workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(knn_model) |> 
+  fit_resamples(compmus_cv, control = control_resamples(save_pred = TRUE))
+
+```
+
+####  Confusion Matrix and Precision-Recall Performance
+```{r}
+classification_knn |> get_conf_mat()
+classification_knn |> get_conf_mat() |> autoplot(type = "heatmap")
+
+classification_knn |> get_pr()
+```
+
+```{r}
+library(ranger)
+
+forest_model <-
+  rand_forest() |>
+  set_mode("classification") |> 
+  set_engine("ranger", importance = "impurity")
+
+indie_forest <- 
+  workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(forest_model) |> 
+  fit_resamples(
+    compmus_cv, 
+    control = control_resamples(save_pred = TRUE)
+  )
+
+```
+#### Feature Importance
+```{r}
+workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(forest_model) |> 
+  fit(compmus2025_filtered) |> 
+  pluck("fit", "fit", "fit") |>
+  ranger::importance() |> 
+  enframe() |> 
+  mutate(name = fct_reorder(name, value)) |> 
+  ggplot(aes(name, value)) + 
+  geom_col() + 
+  coord_flip() +
+  theme_minimal() +
+  labs(x = NULL, y = "Importance")
+```
+
+#### Visualizing Feature Distribution
+```{r}
+compmus2025_filtered |>
+  ggplot(aes(x = valence, y = arousal, colour = ai, size = tempo)) +
+  geom_point(alpha = 0.8) +
+  scale_color_viridis_d() +
+  labs(
+    x = "Valence",
+    y = "Arousal",
+    size = "Tempo",
+    colour = "AI"
+  ) +
+  theme_minimal()
+
+```
+
+#### Summary
+I trained classifiers using arousal, valence, and tempo to predict whether a track was AI-generated or not. The results show that the model performs better at identifying AI music than human-made music, with a precision of 0.64 and recall of 0.71 for AI tracks. The confusion matrix reveals a tendency to misclassify Non-AI tracks as AI, suggesting a slight bias. In terms of feature importance, arousal and valence stand out as the most influential predictors, while tempo plays a smaller but still relevant role. The scatter plot further supports this: AI-generated music tends to cluster in areas with higher emotional intensity (arousal and valence), whereas Non-AI songs appear more scattered and diverse. Overall, while the classification isn’t perfect, it highlights that emotional features like arousal and valence can be meaningful indicators of AI-generated music—perhaps reflecting the way AI systems are optimized to generate emotionally impactful content.
+
+### Contribution
+
+Through this project, I gained a deeper understanding of how different musical features—such as chroma, timbre, loudness, and temporal aspects—can be used to analyze and differentiate music created by AI and humans. By visualizing chromagrams and cepstrograms, I observed the pitch stability and timbral consistency in AI-generated tracks. The self-similarity matrices revealed a highly repetitive and structured nature, hinting at algorithmic composition. Moreover, energy novelty and tempogram analysis highlighted a surprisingly stable loudness and tempo profile, which may reflect a lack of human expressiveness.
+
+Finally, through classification using arousal, valence, and tempo, I built models that could reasonably distinguish between AI and non-AI music, with arousal and valence being particularly important predictors. This shows that even minimal affective features can capture underlying differences in emotional intent and composition.
+
+
+
+
